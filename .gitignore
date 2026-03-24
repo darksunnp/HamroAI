@@ -1,0 +1,22 @@
+# Ignore a specific file
+hamroai_tpu_CLD.ipynb
+hamroai_tpu.ipynb
+roadmap.txt
+
+
+# Ignore a file type
+*.log
+*.pyc
+
+# Ignore a folder
+node_modules/
+__pycache__/
+.venv/
+
+# Ignore everything in a folder but keep the folder
+data/*
+!data/.gitkeep
+eval/*
+!eval/.gitkeep
+models/*
+!models/.gitkeep
