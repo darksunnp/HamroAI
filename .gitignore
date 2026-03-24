@@ -7,6 +7,7 @@ roadmap.txt
 # Ignore a file type
 *.log
 *.pyc
+*.txt
 
 # Ignore a folder
 node_modules/
