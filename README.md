@@ -16,13 +16,8 @@ This repository provides the training and experimentation workspace, while the r
 Use Python 3.10+.
 
 ```bash
-pip install -U torch transformers peft accelerate
-```
-
-If you want 4-bit or 8-bit quantized loading on NVIDIA GPUs, also install:
-
-```bash
-pip install -U bitsandbytes
+%pip uninstall -y bitsandbytes
+%pip install -q -U "transformers==4.45.2" "peft==0.12.0" "accelerate==0.34.2" "huggingface_hub>=0.24,<1.0"
 ```
 
 ### 2) Load the model from Hugging Face and run inference
@@ -30,40 +25,76 @@ pip install -U bitsandbytes
 Use this minimal script to load the adapter model and generate text.
 
 ```python
+import os
 import torch
+import transformers
+import peft
 from transformers import AutoTokenizer
 from peft import AutoPeftModelForCausalLM
 
+# Public repos do not require auth; this avoids noisy implicit-token lookups in Colab.
+os.environ.setdefault("HF_HUB_DISABLE_IMPLICIT_TOKEN", "1")
+
+print("torch:", torch.__version__)
+print("transformers:", transformers.__version__)
+print("peft:", peft.__version__)
+
 model_id = "darksunnp/hamroai-nepali-lora-v1"
-
-# Device selection
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
 tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = AutoPeftModelForCausalLM.from_pretrained(model_id)
-model.to(device)
+
+if torch.cuda.is_available():
+    print("Loading model in fp16 on GPU (bitsandbytes disabled for compatibility).")
+    model = AutoPeftModelForCausalLM.from_pretrained(
+        model_id,
+        torch_dtype=torch.float16,
+    )
+    model.to("cuda")
+    device = "cuda"
+else:
+    print("Loading model on CPU.")
+    model = AutoPeftModelForCausalLM.from_pretrained(model_id)
+    model.to("cpu")
+    device = "cpu"
+
 model.eval()
+print(f"Loaded model on: {device}")
+```
+
+
+```python
+def generate_text(prompt, max_new_tokens=80):
+    inputs = tokenizer(
+        prompt,
+        return_tensors="pt",
+        return_token_type_ids=False,
+    )
+
+    if device == "cuda":
+        inputs = {k: v.to("cuda") for k, v in inputs.items()}
+
+    inputs.pop("token_type_ids", None)
+
+    with torch.no_grad():
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            repetition_penalty=1.1,
+            no_repeat_ngram_size=3,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.pad_token_id,
+        )
+
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 prompt = "Nepal ko rajdhani ke ho?"
-inputs = tokenizer(
-	prompt,
-	return_tensors="pt",
-	return_token_type_ids=False,
-).to(device)
-inputs.pop("token_type_ids", None)
+print(generate_text(prompt))
+```
 
-with torch.no_grad():
-	outputs = model.generate(
-		**inputs,
-		max_new_tokens=64,
-		do_sample=False,
-		repetition_penalty=1.1,
-		no_repeat_ngram_size=3,
-		eos_token_id=tokenizer.eos_token_id,
-		pad_token_id=tokenizer.pad_token_id,
-	)
-
-print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+```Python
+# Try your own prompt
+user_prompt = "Write a short paragraph about Nepal in Nepali."
+print(generate_text(user_prompt, max_new_tokens=120))
 ```
 
 ## Optional: Faster Inference with Quantization (GPU)
