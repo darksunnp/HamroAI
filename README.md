@@ -2,6 +2,8 @@
 
 HamroAI is a Nepali-focused language model project.
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/darksunnp/HamroAI/blob/main/notebooks/hamroai_colab_inference.ipynb)
+
 This repository provides the training and experimentation workspace, while the released artifacts are available on Hugging Face:
 
 - Model: https://huggingface.co/darksunnp/hamroai-nepali-lora-v1
