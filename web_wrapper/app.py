@@ -52,8 +52,8 @@ def reset_client() -> None:
 def call_space_run_endpoint(prompt: str, max_new_tokens: int, api_name: str) -> str:
     run_url = f"{SPACE_BASE_URL}/gradio_api/run{api_name}"
     payload = {
-        "prompt": prompt,
-        "max_new_tokens": float(max_new_tokens),
+        # Gradio run endpoints expect positional args in `data`.
+        "data": [prompt, float(max_new_tokens)],
     }
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
