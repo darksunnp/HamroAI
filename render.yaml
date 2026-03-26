@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: web_wrapper
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 240 --graceful-timeout 30
     envVars:
       - key: HAMROAI_SPACE_ID
         value: darksunnp/HamroAI

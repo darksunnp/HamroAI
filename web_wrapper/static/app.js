@@ -41,7 +41,14 @@ form.addEventListener("submit", async (event) => {
       }),
     });
 
-    const data = await response.json();
+    const rawText = await response.text();
+    let data = null;
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      data = { error: "Server returned a non-JSON response.", details: rawText.slice(0, 500) };
+    }
+
     if (!response.ok) {
       let message = data.error || "Unknown server error";
       if (data.hint) {
