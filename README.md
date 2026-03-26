@@ -2,10 +2,32 @@
 
 HamroAI is a Nepali-focused language model project.
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/darksunnp/HamroAI/blob/main/notebooks/hamroai_colab_inference.ipynb)
+
 This repository provides the training and experimentation workspace, while the released artifacts are available on Hugging Face:
 
 - Model: https://huggingface.co/darksunnp/hamroai-nepali-lora-v1
 - Dataset: https://huggingface.co/datasets/darksunnp/hamroai
+
+## Wrapper Website
+
+A local web wrapper is included in the project at:
+
+web_wrapper
+
+It calls your Hugging Face Space API and provides a clean browser UI for prompt testing.
+
+Quick run:
+
+```bash
+cd web_wrapper
+pip install -r requirements.txt
+python app.py
+```
+
+Open:
+
+http://127.0.0.1:7861
 
 ## Quick Start
 

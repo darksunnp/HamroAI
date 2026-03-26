@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HamroAI Wrapper</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <div class="bg-blur bg-blur-a"></div>
+    <div class="bg-blur bg-blur-b"></div>
+
+    <main class="shell">
+      <section class="hero card fade-in-up">
+        <p class="chip">HamroAI Wrapper</p>
+        <h1>Run HamroAI from a clean web interface.</h1>
+        <p class="subtitle">
+          This UI calls your Hugging Face Space endpoint and returns generated text.
+        </p>
+        <div class="meta-row">
+          <span>Space: <strong>{{ space_id }}</strong></span>
+          <span>API: <strong>{{ api_name }}</strong></span>
+        </div>
+      </section>
+
+      <section class="card fade-in-up delay-1">
+        <form id="generate-form">
+          <label for="prompt">Prompt</label>
+          <textarea
+            id="prompt"
+            name="prompt"
+            rows="6"
+            placeholder="Ask in Nepali or English..."
+            required
+          ></textarea>
+
+          <div class="controls">
+            <div>
+              <label for="max_new_tokens">max_new_tokens</label>
+              <input
+                id="max_new_tokens"
+                name="max_new_tokens"
+                type="range"
+                min="8"
+                max="256"
+                step="1"
+                value="80"
+              />
+              <output id="token-output" for="max_new_tokens">80</output>
+            </div>
+
+            <button id="submit-btn" type="submit">Generate</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card fade-in-up delay-2">
+        <div class="result-head">
+          <h2>Output</h2>
+          <span id="status-pill" class="status idle">Idle</span>
+        </div>
+        <pre id="output" class="output">Result will appear here.</pre>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
