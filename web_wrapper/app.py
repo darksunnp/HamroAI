@@ -63,8 +63,15 @@ def call_space_run_endpoint(prompt: str, max_new_tokens: int, api_name: str) -> 
         method="POST",
     )
 
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        text = resp.read().decode("utf-8", errors="replace")
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            text = resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        # Some Gradio Spaces only accept queued calls via /gradio_api/call/*.
+        if exc.code == 404 and "join the queue" in body.lower():
+            return call_space_queue_endpoint(prompt, max_new_tokens, api_name)
+        raise
 
     parsed = json.loads(text)
     if isinstance(parsed, dict):
@@ -74,6 +81,65 @@ def call_space_run_endpoint(prompt: str, max_new_tokens: int, api_name: str) -> 
         if isinstance(data, list) and data:
             return str(data[0])
     return str(parsed)
+
+
+def _extract_output_from_payload(payload_obj):
+    if isinstance(payload_obj, dict):
+        if isinstance(payload_obj.get("output"), str):
+            return payload_obj["output"]
+        data = payload_obj.get("data")
+        if isinstance(data, list) and data:
+            return str(data[0])
+    if isinstance(payload_obj, list) and payload_obj:
+        return str(payload_obj[0])
+    return str(payload_obj)
+
+
+def _parse_sse_result(text: str):
+    data_lines = []
+    for line in text.splitlines():
+        if line.startswith("data:"):
+            data_lines.append(line[len("data:") :].strip())
+
+    # Parse from the end because the final SSE message typically contains the completed payload.
+    for item in reversed(data_lines):
+        if not item:
+            continue
+        try:
+            parsed = json.loads(item)
+            return _extract_output_from_payload(parsed)
+        except Exception:
+            continue
+
+    raise ValueError("Could not parse queue response payload")
+
+
+def call_space_queue_endpoint(prompt: str, max_new_tokens: int, api_name: str) -> str:
+    call_url = f"{SPACE_BASE_URL}/gradio_api/call{api_name}"
+    payload = {"data": [prompt, float(max_new_tokens)]}
+    body = json.dumps(payload).encode("utf-8")
+
+    start_req = urllib.request.Request(
+        call_url,
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    with urllib.request.urlopen(start_req, timeout=120) as resp:
+        start_text = resp.read().decode("utf-8", errors="replace")
+
+    start_payload = json.loads(start_text)
+    event_id = start_payload.get("event_id")
+    if not event_id:
+        return _extract_output_from_payload(start_payload)
+
+    result_url = f"{call_url}/{event_id}"
+    result_req = urllib.request.Request(result_url, method="GET")
+    with urllib.request.urlopen(result_req, timeout=180) as resp:
+        result_text = resp.read().decode("utf-8", errors="replace")
+
+    return _parse_sse_result(result_text)
 
 
 @app.get("/")
