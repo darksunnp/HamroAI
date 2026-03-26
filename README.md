@@ -9,6 +9,12 @@ This repository provides the training and experimentation workspace, while the r
 - Model: https://huggingface.co/darksunnp/hamroai-nepali-lora-v1
 - Dataset: https://huggingface.co/datasets/darksunnp/hamroai
 
+PLEASE NOTE THAT THE MODEL AT THIS STAGE PRODUCES SOME PART AS JIBBERISH WHICH WILL BE UPDATED AS I WILL GET MORE ACCESS TO COMPUTE
+
+iSSUES:
+
+The free compute is not enough to train what i was intending and it does not produce competent results
+My lack of knowledge : While i do have basic ML/DL knowledge when i took over this project i was unaware of how difficult it will become - THIS DOESNT MEAN i am dropping this project but i want to first learn and improve on my concepts first and then tackle this when i feel like i know exactly what i am doing.
 ## Quick Start
 
 ### 1) Install dependencies
