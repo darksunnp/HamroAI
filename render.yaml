@@ -11,5 +11,3 @@ services:
         value: darksunnp/HamroAI
       - key: HAMROAI_API_NAME
         value: /generate
-      - key: HF_TOKEN
-        sync: false

@@ -1,4 +1,5 @@
 import os
+import time
 from threading import Lock
 
 from flask import Flask, jsonify, render_template, request
@@ -7,7 +8,8 @@ from gradio_client import Client
 app = Flask(__name__)
 
 SPACE_ID = os.environ.get("HAMROAI_SPACE_ID", "darksunnp/HamroAI")
-API_NAME = os.environ.get("HAMROAI_API_NAME", "/generate")
+_api_name = os.environ.get("HAMROAI_API_NAME", "/generate")
+API_NAME = _api_name if _api_name.startswith("/") else "/generate"
 HF_TOKEN = os.environ.get("HF_TOKEN")
 PORT = int(os.environ.get("PORT", "7861"))
 
@@ -57,41 +59,44 @@ def generate() -> tuple:
 
     max_new_tokens = max(8, min(256, max_new_tokens))
 
-    try:
-        client = get_client()
-        result = client.predict(
-            prompt=prompt,
-            max_new_tokens=float(max_new_tokens),
-            api_name=API_NAME,
-        )
-    except Exception:
-        # Retry once with a fresh client for transient Space/session errors.
-        reset_client()
-        try:
-            client = get_client()
-            result = client.predict(
-                prompt=prompt,
-                max_new_tokens=float(max_new_tokens),
-                api_name=API_NAME,
-            )
-        except Exception as exc:
-            err_text = str(exc) or exc.__class__.__name__
-            hint = None
+    errors = []
+    api_candidates = [API_NAME]
+    if API_NAME != "/generate":
+        api_candidates.append("/generate")
 
-            if "Expecting value" in err_text:
-                hint = (
-                    "Hugging Face Space returned a non-JSON response. "
-                    "Common causes: private Space without HF_TOKEN, "
-                    "Space is sleeping/starting, or Space runtime error."
+    for attempt in range(3):
+        if attempt > 0:
+            reset_client()
+            time.sleep(attempt)
+
+        for api_name in api_candidates:
+            try:
+                client = get_client()
+                result = client.predict(
+                    prompt=prompt,
+                    max_new_tokens=float(max_new_tokens),
+                    api_name=api_name,
                 )
-            elif "401" in err_text or "403" in err_text:
-                hint = "Authentication failed. Set HF_TOKEN in Render if the Space is private."
-            elif "404" in err_text:
-                hint = "Check HAMROAI_SPACE_ID and HAMROAI_API_NAME values in Render Environment."
+                return jsonify({"output": result})
+            except Exception as exc:
+                errors.append(f"attempt={attempt + 1}, api={api_name}, error={exc}")
 
-            return jsonify({"error": f"Generation failed: {err_text}", "hint": hint}), 500
+    err_text = errors[-1] if errors else "Unknown generation error"
+    hint = None
 
-    return jsonify({"output": result})
+    if "Expecting value" in err_text:
+        hint = (
+            "Hugging Face Space returned a non-JSON response. "
+            "Common causes: Space cold start, temporary Space runtime error, "
+            "or invalid API name."
+        )
+    elif "401" in err_text or "403" in err_text:
+        hint = "Authentication failed. If your Space is public, ensure HF_TOKEN is removed from Render env."
+    elif "404" in err_text:
+        hint = "Endpoint not found. Confirm HAMROAI_API_NAME is /generate."
+
+    app.logger.error("Generation failed. Details: %s", " | ".join(errors))
+    return jsonify({"error": f"Generation failed: {err_text}", "hint": hint}), 500
 
 
 if __name__ == "__main__":
