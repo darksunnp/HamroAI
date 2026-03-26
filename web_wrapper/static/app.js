@@ -43,7 +43,8 @@ form.addEventListener("submit", async (event) => {
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || "Unknown server error");
+      const message = data.hint ? `${data.error}\n\nHint: ${data.hint}` : (data.error || "Unknown server error");
+      throw new Error(message);
     }
 
     outputEl.textContent = data.output || "(Empty output)";

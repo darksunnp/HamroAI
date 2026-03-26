@@ -26,6 +26,12 @@ def get_client() -> Client:
     return _client
 
 
+def reset_client() -> None:
+    global _client
+    with _client_lock:
+        _client = None
+
+
 @app.get("/")
 def home():
     return render_template(
@@ -58,8 +64,32 @@ def generate() -> tuple:
             max_new_tokens=float(max_new_tokens),
             api_name=API_NAME,
         )
-    except Exception as exc:
-        return jsonify({"error": f"Generation failed: {exc}"}), 500
+    except Exception:
+        # Retry once with a fresh client for transient Space/session errors.
+        reset_client()
+        try:
+            client = get_client()
+            result = client.predict(
+                prompt=prompt,
+                max_new_tokens=float(max_new_tokens),
+                api_name=API_NAME,
+            )
+        except Exception as exc:
+            err_text = str(exc) or exc.__class__.__name__
+            hint = None
+
+            if "Expecting value" in err_text:
+                hint = (
+                    "Hugging Face Space returned a non-JSON response. "
+                    "Common causes: private Space without HF_TOKEN, "
+                    "Space is sleeping/starting, or Space runtime error."
+                )
+            elif "401" in err_text or "403" in err_text:
+                hint = "Authentication failed. Set HF_TOKEN in Render if the Space is private."
+            elif "404" in err_text:
+                hint = "Check HAMROAI_SPACE_ID and HAMROAI_API_NAME values in Render Environment."
+
+            return jsonify({"error": f"Generation failed: {err_text}", "hint": hint}), 500
 
     return jsonify({"output": result})
 
