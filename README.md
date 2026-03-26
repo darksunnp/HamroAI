@@ -11,7 +11,7 @@ This repository provides the training and experimentation workspace, while the r
 
 PLEASE NOTE THAT THE MODEL AT THIS STAGE PRODUCES SOME PART AS JIBBERISH WHICH WILL BE UPDATED AS I WILL GET MORE ACCESS TO COMPUTE
 
-iSSUES:
+Issues:
 
 The free compute is not enough to train what i was intending and it does not produce competent results
 
