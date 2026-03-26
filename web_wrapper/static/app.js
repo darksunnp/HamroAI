@@ -43,7 +43,13 @@ form.addEventListener("submit", async (event) => {
 
     const data = await response.json();
     if (!response.ok) {
-      const message = data.hint ? `${data.error}\n\nHint: ${data.hint}` : (data.error || "Unknown server error");
+      let message = data.error || "Unknown server error";
+      if (data.hint) {
+        message += `\n\nHint: ${data.hint}`;
+      }
+      if (data.details) {
+        message += `\n\nDetails: ${data.details}`;
+      }
       throw new Error(message);
     }
 

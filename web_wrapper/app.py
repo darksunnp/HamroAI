@@ -1,5 +1,6 @@
 import os
 import time
+import traceback
 from threading import Lock
 
 from flask import Flask, jsonify, render_template, request
@@ -60,6 +61,7 @@ def generate() -> tuple:
     max_new_tokens = max(8, min(256, max_new_tokens))
 
     errors = []
+    tracebacks = []
     api_candidates = [API_NAME]
     if API_NAME != "/generate":
         api_candidates.append("/generate")
@@ -80,6 +82,7 @@ def generate() -> tuple:
                 return jsonify({"output": result})
             except Exception as exc:
                 errors.append(f"attempt={attempt + 1}, api={api_name}, error={exc}")
+                tracebacks.append(traceback.format_exc())
 
     err_text = errors[-1] if errors else "Unknown generation error"
     hint = None
@@ -95,8 +98,19 @@ def generate() -> tuple:
     elif "404" in err_text:
         hint = "Endpoint not found. Confirm HAMROAI_API_NAME is /generate."
 
-    app.logger.error("Generation failed. Details: %s", " | ".join(errors))
-    return jsonify({"error": f"Generation failed: {err_text}", "hint": hint}), 500
+    details = " | ".join(errors)
+    app.logger.error("Generation failed. Details: %s", details)
+    for idx, tb in enumerate(tracebacks, start=1):
+        app.logger.error("Generation traceback #%s:\n%s", idx, tb)
+
+    # Return detailed message to frontend for easier debugging on hosted instances.
+    return jsonify(
+        {
+            "error": f"Generation failed: {err_text}",
+            "hint": hint,
+            "details": details,
+        }
+    ), 500
 
 
 if __name__ == "__main__":
