@@ -15,6 +15,21 @@ function setStatus(kind, text) {
   statusEl.textContent = text;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseApiError(data) {
+  let message = data.error || "Unknown server error";
+  if (data.hint) {
+    message += `\n\nHint: ${data.hint}`;
+  }
+  if (data.details) {
+    message += `\n\nDetails: ${data.details}`;
+  }
+  return message;
+}
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -27,10 +42,10 @@ form.addEventListener("submit", async (event) => {
 
   submitBtn.disabled = true;
   setStatus("loading", "Generating...");
-  outputEl.textContent = "Calling Hugging Face Space...";
+  outputEl.textContent = "Submitting generation job...";
 
   try {
-    const response = await fetch("/api/generate", {
+    const startResponse = await fetch("/api/generate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -41,27 +56,62 @@ form.addEventListener("submit", async (event) => {
       }),
     });
 
-    const rawText = await response.text();
-    let data = null;
+    const startRawText = await startResponse.text();
+    let startData = null;
     try {
-      data = rawText ? JSON.parse(rawText) : {};
+      startData = startRawText ? JSON.parse(startRawText) : {};
     } catch {
-      data = { error: "Server returned a non-JSON response.", details: rawText.slice(0, 500) };
+      startData = { error: "Server returned a non-JSON response.", details: startRawText.slice(0, 500) };
     }
 
-    if (!response.ok) {
-      let message = data.error || "Unknown server error";
-      if (data.hint) {
-        message += `\n\nHint: ${data.hint}`;
-      }
-      if (data.details) {
-        message += `\n\nDetails: ${data.details}`;
-      }
-      throw new Error(message);
+    if (!startResponse.ok) {
+      throw new Error(parseApiError(startData));
     }
 
-    outputEl.textContent = data.output || "(Empty output)";
-    setStatus("done", "Done");
+    const jobId = startData.job_id;
+    if (!jobId) {
+      throw new Error("No job_id returned from server.");
+    }
+
+    setStatus("loading", "Queued...");
+    outputEl.textContent = `Job queued: ${jobId}\nWaiting for result...`;
+
+    const startedAt = Date.now();
+    const maxWaitMs = 8 * 60 * 1000;
+
+    while (true) {
+      await sleep(1500);
+
+      const pollResponse = await fetch(`/api/result/${jobId}`);
+      const pollRawText = await pollResponse.text();
+      let pollData = null;
+      try {
+        pollData = pollRawText ? JSON.parse(pollRawText) : {};
+      } catch {
+        pollData = { error: "Server returned a non-JSON poll response.", details: pollRawText.slice(0, 500) };
+      }
+
+      if (!pollResponse.ok) {
+        throw new Error(parseApiError(pollData));
+      }
+
+      const status = pollData.status || "unknown";
+      if (status === "queued") {
+        setStatus("loading", "Queued...");
+      } else if (status === "running") {
+        setStatus("loading", "Generating...");
+      } else if (status === "completed") {
+        outputEl.textContent = pollData.output || "(Empty output)";
+        setStatus("done", "Done");
+        break;
+      } else if (status === "failed") {
+        throw new Error(parseApiError(pollData));
+      }
+
+      if (Date.now() - startedAt > maxWaitMs) {
+        throw new Error("Timed out waiting for generation result. Please try again.");
+      }
+    }
   } catch (error) {
     outputEl.textContent = String(error.message || error);
     setStatus("error", "Error");
